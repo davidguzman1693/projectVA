@@ -144,12 +144,14 @@
   <button class="button" id="pull" onclick="pullTweets()">Pull tweets</button>
   <button class="button" id="offline" onclick="showOfflineMode()">Offline clustering</button>
   <button class="button" id="online" onclick="showOnlineMode()">Online clustering</button>
-  <h2 id="heading_text"></h2>
-  <div class="float-container">
-    <div class="float-child" id="chart1"></div>
-    <div class="float-child" id="charPcaOffline"></div>
-  </div>  
-  <div id="chart"></div>
+  <h2 style="width='800px'; height='1000px'" id="heading_text"></h2>
+  <div style="width='800px'; height='1000px'">
+    <div class="float-container">
+      <div class="float-child" id="chart1"></div>
+      <div class="float-child" id="charPcaOffline"></div>
+    </div>  
+    <div id="chart"></div>
+  </div>
 
   
 <script>
@@ -191,7 +193,7 @@ function pullTweets(){
       showVizData()
     }
   }catch(err){
-    window.alert("No more files");
+    window.alert(err);
   }
 }
 
@@ -224,7 +226,7 @@ function showOfflineMode(){
 function showVizData() {
   disableButton();
 
-  d3version4.select("#chart1").selectAll("*").remove();
+  d3version3.select("#chart1").selectAll("*").remove();
   d3version4.select("#charPcaOffline").selectAll("*").remove();
   d3version3.select("#chart").selectAll("*").remove();
 
@@ -242,21 +244,22 @@ function showVizData() {
   /*var x = d3.scaleOrdinal()
       .rangeRoundBands([0, width], .1, 1);*/
 
-  var x = d3version4.scaleBand()
-      .rangeRound([0, width])
-      .padding([0.5]);
+  var x = d3version3.scale.ordinal()
+    .rangeRoundBands([0, width], .1, 1);
 
-  var y = d3version4.scaleLinear()
-      .range([height, 0]);
+  var y = d3version3.scale.linear()
+    .range([height, 0]);
 
-  var xAxis = d3version4.axisBottom()
-      .scale(x);
+  var xAxis = d3version3.svg.axis()
+    .scale(x)
+    .orient("bottom");
 
-  var yAxis =  d3version4.axisLeft()
-      .scale(y);
+  var yAxis =  d3version3.svg.axis()
+      .scale(y)
+      .orient("left");
       //.tickFormat(formatPercent);
 
-  var svgBar = d3version4.select("#chart1").append("svg")
+  var svgBar = d3version3.select("#chart1").append("svg")
       .attr("width", width + margin.left + margin.right)
       .attr("height", height + margin.top + margin.bottom)
     .append("g")
@@ -355,7 +358,7 @@ function showVizData() {
       }
     }));
     //y.domain([0, d3.max(data, function(d) { return d.frequency; })]);
-    y.domain([0, d3version4.max(dataframeBar, function(d) { 
+    y.domain([0, d3version3.max(dataframeBar, function(d) { 
       if(flag){
         return dict[d.clusterd]; 
       }else{
@@ -366,16 +369,30 @@ function showVizData() {
     svgBar.append("g")
         .attr("class", "x axis")
         .attr("transform", "translate(0," + height + ")")
-        .call(xAxis);
+      .call(xAxis)
+        .append("text")
+        .attr("y", 6)
+        .attr("x", 100)
+        .attr("dy", ".71em")
+        .style({
+          "text-anchor": "end",
+          "font-weight": "bold",
+          "font-size": "14px"
+        })
+        .text("Cluster number");
 
     svgBar.append("g")
         .attr("class", "y axis")
         .call(yAxis)
-        .append("text")
+      .append("text")
         .attr("transform", "rotate(-90)")
         .attr("y", 6)
         .attr("dy", ".71em")
-        .style("text-anchor", "end")
+        .style({
+          "text-anchor": "end",
+          "font-weight": "bold",
+          "font-size": "14px"
+        })
         .text("Number of tweets");
 
     svgBar.selectAll(".bar")
@@ -389,7 +406,7 @@ function showVizData() {
             return x(d.Jackcluster); 
           }
         })
-        .attr("width", x.bandwidth())
+        .attr("width", x.rangeBand())
         .attr("y", function(d) { 
           if(flag){
             return y(dict[d.clusterd]); 
