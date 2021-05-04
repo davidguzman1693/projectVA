@@ -15,11 +15,17 @@
   }
 
   .bar {
-    fill-opacity: .9;
+    filter: brightness(40%);   
+  }
+
+  .point {
+    opacity: 0.2;
   }
 
   .x.axis path {
-    display: none;
+    fill: none;
+    stroke: #000;
+    shape-rendering: crispEdges;
   }
 
   label {
@@ -141,20 +147,36 @@
   <script src="http://code.jquery.com/jquery-3.3.1.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
 </head>
 <body>
-  <button class="button" id="pull" onclick="pullTweets()">Pull tweets</button>
-  <button class="button" id="offline" onclick="showOfflineMode()">Offline clustering</button>
-  <button class="button" id="online" onclick="showOnlineMode()">Online clustering</button>
-  <h2 style="width='800px'; height='1000px'" id="heading_text"></h2>
-  <div style="width='800px'; height='1000px'">
-    <div class="float-container">
-      <div class="float-child" id="chart1"></div>
-      <div class="float-child" id="charPcaOffline"></div>
-    </div>  
-    <div id="chart"></div>
+  <div class="header" id="myHeader">
+    <button class="button" id="pull" onclick="pullTweets()">Pull tweets</button>
+    <button class="button" id="offline" onclick="showOfflineMode()">Offline clustering</button>
+    <button class="button" id="online" onclick="showOnlineMode()">Online clustering</button>
+  </div>
+  <div class="content">
+    <h2 style="width='800px'; height='1000px'" id="heading_text"></h2>
+    <div style="width='800px'; height='1000px'">
+      <div class="float-container">
+        <div class="float-child" id="chart1"></div>
+        <div class="float-child" id="charPcaOffline"></div>
+      </div>  
+      <div id="chart"></div>
+    </div>
   </div>
 
   
 <script>
+  window.onscroll = function() {myFunction()};
+
+  var header = document.getElementById("myHeader");
+  var sticky = header.offsetTop;
+
+  function myFunction() {
+    if (window.pageYOffset > sticky) {
+      header.classList.add("sticky");
+    } else {
+      header.classList.remove("sticky");
+    }
+  }
 //PCA representation
   //var rangeColors=["gold", "blue", "green", "yellow", "black", "grey", "darkgreen", "pink", "brown", "slateblue", "grey1", "orange"]
 var rangeColors = ["#1f77b4","#ff7f0e","#2ca02c","#d62728","#9467bd","#8c564b","#e377c2","#7f7f7f","#bcbd22","#17becf","yellow","blue"]
@@ -293,10 +315,7 @@ function showVizData() {
 
     var pcaData = []
     var xMax=0,yMax=0,xMin=0,yMin=0
-    dataframeBar = []
-    if(flag){
-      dataframeBar = dataframe;
-    }
+    dataframeBar = new Set()
     dataframe.forEach(function(d) {
       if(flag){
         pcaData.push([+d.x_rep,+d.y_rep,+d.clusterd])
@@ -305,11 +324,14 @@ function showVizData() {
 
         xMin = Math.min(+d.x_rep, xMin)
         yMin = Math.min(+d.y_rep, yMin)
+
+        //BarChart
         if(!(d.clusterd in dict)){
           dict[d.clusterd] = 0;
         }else{
           dict[d.clusterd] = dict[d.clusterd] + 1;
         }
+        dataframeBar.add(d.clusterd)
 
         //Concept map
         if(!(d.clusterd in concMap1)){
@@ -329,12 +351,12 @@ function showVizData() {
           xMin = Math.min(+d.x_rep, xMin)
           yMin = Math.min(+d.y_rep, yMin)
 
-          dataframeBar.push(d)
           if(!(+d.Jackcluster in dict)){
             dict[+d.Jackcluster] = 0;
           }else{
             dict[+d.Jackcluster] = dict[+d.Jackcluster] + 1;
           }
+          dataframeBar.add(d.Jackcluster)
           
           //Concept map
           if(!(d.Jackcluster in concMap1)){
@@ -349,21 +371,15 @@ function showVizData() {
       }
       //console.log(Number(d.x_rep))
     });
-     
+    
+    dataframeBar = Array.from(dataframeBar).sort();
+    console.log(dataframeBar);
     x.domain(dataframeBar.map(function(d) { 
-      if(flag){
-        return d.clusterd;
-      }else{
-        return d.Jackcluster; 
-      }
+      return d;
     }));
     //y.domain([0, d3.max(data, function(d) { return d.frequency; })]);
     y.domain([0, d3version3.max(dataframeBar, function(d) { 
-      if(flag){
-        return dict[d.clusterd]; 
-      }else{
-        return dict[d.Jackcluster];
-      }
+      return dict[d];
     })]);
 
     svgBar.append("g")
@@ -399,79 +415,66 @@ function showVizData() {
         .data(dataframeBar)
         .enter().append("rect")
         .attr("class", "bar")
+        .attr("id",function(d) { 
+          return "bar"+d; 
+        })
         .attr("x", function(d) { 
-          if(flag){
-            return x(d.clusterd); 
-          }else{
-            return x(d.Jackcluster); 
-          }
+          return x(d); 
         })
         .attr("width", x.rangeBand())
         .attr("y", function(d) { 
-          if(flag){
-            return y(dict[d.clusterd]); 
-          }else{
-            return y(dict[d.Jackcluster]); 
-          }
+          return y(dict[d]); 
         })
         .attr("fill", function(d) {
-          if(flag){
-            return ColorForCusters(d.clusterd)
-          }else{
-            return ColorForCusters(d.Jackcluster)
-          }
+          return ColorForCusters(d)
        })
-        //.attr("height", function(d) { return height - y(dict[d.clusterd]); })
         .attr("height", function(d) { 
-          if(flag){
-            return height - y(dict[d.clusterd]); 
-          }else{
-            return height - y(dict[d.Jackcluster]); 
-          }
+          return height - y(dict[d]); 
         })
-        .attr("selected",false);
-        /*.on("mouseover", function(d,i){
+        .attr("selected",false)
+        .on("mouseover", function(d,i){
             // Remove active class from all buttons
-            if (d3version4.select(this).attr("selected") === "false")
-              {
-              d3version4.select(this)
-              .attr("selected",true)
-                .style("fill","gold")
-              }
-            else
-            { 
-              colorTr = 0
+          /*d3version4.select(this)
+            .attr("selected",true)
+              .style("fill","gold")*/
+
+            //Highlight the cluster
+            d3version3.selectAll(".clusr"+d).style("opacity","1.0");
+            //document.getElementsByClassName("clusr"+d).style.opacity = "1.0";
+            document.getElementById("bar"+d).style.filter = "brightness(100%)";
+            for (var i = 0; i < inner.length; i++){
               if(flag){
-                colorTr = d.clusterd
-              }else{
-                colorTr = d.Jackcluster
-              }
-              d3version4.select(this)
-              .attr("selected",false)
-                .style("fill",ColorForCusters(colorTr))                
+                  if(inner[i].id.localeCompare('r'+d)==0){
+                    mouseover(inner[i]);
+                 }
+                }
+                else{
+                  if(inner[i].id=='r'+d){
+                    mouseover(inner[i]);
+                  }
+                }
             }
+            
         })
         .on("mouseout", function(d,i){
-            // Remove active class from all buttons
-            if (d3version4.select(this).attr("selected") === "false")
-              {
-              d3version4.select(this)
-              .attr("selected",true)
-                .style("fill","gold")
-              }
-            else
-            { 
-              colorTr = 0
+            d3version3.selectAll(".clusr"+d).style("opacity","0.2");
+            //document.getElementsByClassName("clusr"+d).style.opacity = "0.3";
+            document.getElementById("bar"+d).style.filter = "brightness(40%)";
+            //Highlight the cluster
+            for (var i = 0; i < inner.length; i++){
               if(flag){
-                colorTr = d.clusterd
-              }else{
-                colorTr = d.Jackcluster
+                if(inner[i].id.localeCompare('r'+d)==0){
+                  mouseout(inner[i])
+               }
               }
-              d3version4.select(this)
-              .attr("selected",false)
-                .style("fill",ColorForCusters(colorTr))                
-            }
-        });*/
+              else{
+                if(inner[i].id=='r'+d){
+                  mouseout(inner[i])
+                }
+              }
+          }
+            
+        });
         //.on("click");
 
     //First concept map
@@ -496,7 +499,7 @@ function showVizData() {
       if (d == null)
         return;
       
-      i = { id: 'i' + inner.length, name: d[0], related_links: [] };
+      i = { id: 'r' + inner.length, name: d[0], related_links: [] };
       i.related_nodes = [i.id];
       inner.push(i);
       
@@ -625,8 +628,8 @@ function showVizData() {
       .enter().append("g")
         .attr("class", "outer_node")
         .attr("transform", function(d) { return "rotate(" + (d.x - 90) + ")translate(" + d.y + ")"; })
-        .on("mouseover", mouseover)
-        .on("mouseout", mouseout);
+        .on("mouseover", mouseOverConcept)
+        .on("mouseout", mouseOutConcept);
       
     onode.append("circle")
         .attr('id', function(d) { return d.id })
@@ -650,8 +653,8 @@ function showVizData() {
       .enter().append("g")
         .attr("class", "inner_node")
         .attr("transform", function(d, i) { return "translate(" + d.x + "," + d.y + ")"})
-        .on("mouseover", mouseover)
-        .on("mouseout", mouseout);
+        .on("mouseover", mouseOverNode)
+        .on("mouseout", mouseOutNode);
       
     inode.append('rect')
         .attr('width', rect_width)
@@ -669,11 +672,38 @@ function showVizData() {
 
     d3version3.select(self.frameElement).style("height", diameter - 150 + "px");
 
+    function mouseOverNode(d){
+      document.getElementById("ba"+d.id).style.filter = "brightness(100%)";
+      d3version3.selectAll(".clus"+d.id).style("opacity","1.0");
+      mouseover(d);
+    }
+
+    function mouseOutNode(d){
+      document.getElementById("ba"+d.id).style.filter = "brightness(40%)";
+      d3version3.selectAll(".clus"+d.id).style("opacity","0.2");
+      mouseout(d);
+    }
+
+    function mouseOverConcept(d){
+      for (var i = 1; i < d.related_nodes.length; i++){
+        document.getElementById("ba"+d.related_nodes[i]).style.filter = "brightness(100%)";
+        d3version3.selectAll(".clus"+d.related_nodes[i]).style("opacity","1.0");
+      }
+      mouseover(d);
+    }
+
+    function mouseOutConcept(d){
+      for (var i = 1; i < d.related_nodes.length; i++){
+        document.getElementById("ba"+d.related_nodes[i]).style.filter = "brightness(40%)";
+        d3version3.selectAll(".clus"+d.related_nodes[i]).style("opacity","0.2");
+      }
+      mouseout(d);
+    }
+
     function mouseover(d)
     {
       // bring to front
       d3version3.selectAll('.links .link').sort(function(a, b){ return d.related_links.indexOf(a.id); }); 
-      
         for (var i = 0; i < d.related_nodes.length; i++)
         {
             d3version3.select('#' + d.related_nodes[i]).classed('highlight', true);
@@ -690,7 +720,7 @@ function showVizData() {
     }
 
     function mouseout(d)
-    {     
+    {   
         for (var i = 0; i < d.related_nodes.length; i++)
         {
             d3version3.select('#' + d.related_nodes[i]).classed('highlight', false);
@@ -730,6 +760,9 @@ function showVizData() {
     svgPca.selectAll("circle")
      .data(pcaData).enter()
      .append("circle")
+     .attr("class",function(d) {
+        return 'point clusr'+d[2];
+      })
      .attr("cx", function(d) {return pcaX(+d[0]);})
      .attr("cy", function(d) {return pcaY(+d[1])})
      .attr("r", 4)
